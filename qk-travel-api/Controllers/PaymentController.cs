@@ -1,0 +1,62 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using QkTravelApi.Common.Extensions;
+using QkTravelApi.DTOs.Payment;
+using QkTravelApi.Services.Payment;
+
+namespace QkTravelApi.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
+    public class PaymentController : ControllerBase
+    {
+        private readonly IPaymentService _paymentService;
+
+        public PaymentController(IPaymentService paymentService)
+        {
+            _paymentService = paymentService;
+        }
+
+        [HttpPost("create-order")]
+        public async Task<IActionResult> CreateOrder([FromBody] CreatePaymentRequest dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
+
+            // dto.PaymentMethod = Entities.PaymentMethod.BankTransfer; // Force bank transfer for now
+            var result = await _paymentService.CreatePaymentOrderAsync(userId, dto);
+
+            return this.Created(result, "Payment order created successfully");
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetPayment(Guid id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return this.NotFound("User not found");
+
+            var result = await _paymentService.GetPaymentByIdAsync(id, userId);
+
+            return this.Success(result, "Payment details retrieved successfully");
+        }
+
+        [HttpGet("user")]
+        public async Task<IActionResult> GetHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return this.Unauthorized();
+
+            var result = await _paymentService.GetUserPaymentHistoryAsync(userId, page, pageSize);
+            return this.Success(result, "Payment history retrieved successfully");
+        }
+
+        [HttpGet("check-status/{orderCode}")]
+        public async Task<IActionResult> CheckStatus(string orderCode)
+        {
+            var isPaid = await _paymentService.IsOrderPaidAsync(orderCode);
+            return this.Success(new { isPaid }, "Payment status checked successfully");
+        }
+    }
+}

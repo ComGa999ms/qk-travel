@@ -1,0 +1,24 @@
+using AutoMapper;
+using QkTravelApi.DTOs.Blog;
+using QkTravelApi.Entities;
+
+namespace QkTravelApi.Mapping
+{
+    public class BlogProfile : Profile
+    {
+        public BlogProfile()
+        {
+            CreateMap<Blog, BlogPublicResponse>()
+                .ForMember(dest => dest.AuthorName, opt => opt.MapFrom(src => src.Author != null ? $"{src.Author.FirstName} {src.Author.LastName}" : "Unknown"))
+                .ForMember(dest => dest.AuthorAvatar, opt => opt.MapFrom(src => src.Author != null ? src.Author.AvatarUrl : null));
+
+            CreateMap<Blog, BlogAdminResponse>()
+                .ForMember(dest => dest.AuthorName, opt => opt.MapFrom(src => src.Author != null ? $"{src.Author.FirstName} {src.Author.LastName}" : "Unknown"))
+                .ForMember(dest => dest.AuthorAvatar, opt => opt.MapFrom(src => src.Author != null ? src.Author.AvatarUrl : null))
+                .ForMember(dest => dest.UpdatedByName, opt => opt.MapFrom(src => src.UpdatedBy != null ? $"{src.UpdatedBy.FirstName} {src.UpdatedBy.LastName}" : null))
+                .ForMember(dest => dest.UpdatedByAvatar, opt => opt.MapFrom(src => src.UpdatedBy != null ? src.UpdatedBy.AvatarUrl : null));
+
+            CreateMap<UpdateBlogRequest, Blog>();
+        }
+    }
+}

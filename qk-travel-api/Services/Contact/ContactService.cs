@@ -1,0 +1,55 @@
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using QkTravelApi.Common.Exceptions;
+using QkTravelApi.Data;
+using QkTravelApi.DTOs.Contact;
+using QkTravelApi.Entities;
+using QkTravelApi.Services.Email;
+
+namespace QkTravelApi.Services.Contact;
+
+public class ContactService : IContactService
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IEmailService _emailService;
+    private readonly IMapper _mapper;
+
+    private IConfiguration configuration;
+
+
+    public ContactService(ApplicationDbContext context, IEmailService emailService, IMapper mapper, IConfiguration configuration)
+    {
+        _emailService = emailService;
+        _context = context;
+        _mapper = mapper;
+        this.configuration = configuration;
+    }
+
+    public async Task<bool> SendEmailAsync(ContactMessageRequest contactMessageRequest)
+    {
+        var contactTopic = _context.ContactTopics.FirstOrDefault(ct => ct.Id == contactMessageRequest.ContactTopicId);
+        if (contactTopic == null)
+        {
+            throw new BadRequestException("Topic not found");
+        }
+
+        var contactMessage = _mapper.Map<ContactMessage>(contactMessageRequest);
+        contactMessage.ContactTopic = contactTopic;
+        _context.ContactMessages.Add(contactMessage);
+        var check = await _context.SaveChangesAsync();
+        if (check > 0)
+        {
+            var companyEmail = configuration.GetSection("EmailSettings").GetValue<string>("CompanyEmail") ?? "QkTravel.vn.ai@gmail.com";
+            await _emailService.SendEmailContactAsync(companyEmail, contactMessage);
+            return true;
+        }
+        return false;
+    }
+
+    public async Task<List<ContactTopicDto>> GetTopicsAsync()
+    {
+        return await _context.ContactTopics.ProjectTo<ContactTopicDto>(_mapper.ConfigurationProvider).ToListAsync();
+    }
+}
