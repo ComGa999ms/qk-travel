@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../context/AuthContext";
-import useDialog from "../hooks/useDialog";
-import AlertDialog from "../components/common/AlertDialog";
 import authBg from "../assets/images/auth-bg.jpg";
 
 const Register = () => {
@@ -21,7 +19,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const { alertDialog, showAlert, hideDialog } = useDialog();
+  const [successMessage, setSuccessMessage] = useState("");
 
   const getPasswordStrength = (password) => {
     if (!password) return { strength: 0, text: "", color: "" };
@@ -124,6 +122,8 @@ const Register = () => {
       return;
     }
 
+    setErrors({});
+    setSuccessMessage("");
     setIsLoading(true);
 
     try {
@@ -135,15 +135,10 @@ const Register = () => {
         phoneNumber: formData.phoneNumber,
       });
 
-      showAlert({
-        title: "Đăng ký thành công!",
-        message: "Vui lòng kiểm tra email để xác thực tài khoản.",
-        type: "success",
-      });
+      setSuccessMessage("Đăng ký thành công");
       setTimeout(() => {
-        hideDialog();
         navigate("/login");
-      }, 2000);
+      }, 1500);
     } catch (error) {
       console.error("Register error:", error);
 
@@ -383,6 +378,15 @@ const Register = () => {
               )}
             </div>
 
+            {successMessage && (
+              <div className="bg-green-50/80 border border-green-200 rounded-lg p-3 backdrop-blur-sm">
+                <p className="text-sm font-medium text-green-700 flex items-center">
+                  <i className="fas fa-check-circle mr-2"></i>
+                  {successMessage}
+                </p>
+              </div>
+            )}
+
             {/* Error Message */}
             {errors.submit && (
               <div className="bg-red-50/80 border border-red-200 rounded-lg p-2 backdrop-blur-sm">
@@ -396,7 +400,7 @@ const Register = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || Boolean(successMessage)}
               className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transform transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {isLoading ? (
@@ -462,16 +466,6 @@ const Register = () => {
           </p>
         </div>
       </div>
-
-      {/* Alert Dialog */}
-      <AlertDialog
-        isOpen={alertDialog.show}
-        onClose={hideDialog}
-        type={alertDialog.type}
-        title={alertDialog.title}
-        message={alertDialog.message}
-        buttonText={alertDialog.buttonText}
-      />
     </div>
   );
 };
