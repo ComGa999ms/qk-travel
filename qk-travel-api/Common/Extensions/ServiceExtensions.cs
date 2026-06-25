@@ -19,6 +19,7 @@ using QkTravelApi.Services.Audit;
 using QkTravelApi.Services.Blog;
 using QkTravelApi.Services.BlogComment;
 using QkTravelApi.Services.SpinPrize;
+using QkTravelApi.Services.Crawling;
 
 namespace QkTravelApi.Common.Extensions
 {
@@ -61,6 +62,9 @@ namespace QkTravelApi.Common.Extensions
             services.AddScoped<IBlogService, BlogService>();
             services.AddScoped<IBlogCommentService, Services.BlogComment.BlogCommentService>();
             services.AddScoped<ISpinPrizeService, SpinPrizeService>();
+            services.AddScoped<ICrawlJobService, CrawlJobService>();
+            services.AddScoped<ITravelCrawler, VietnamTravelCrawler>();
+            services.AddScoped<ITravelCrawler, WikivoyageCrawler>();
 
             // Register Hosted Services
             services.AddHostedService<QkTravelApi.Worker.PaymentCleanupWorker>();

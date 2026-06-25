@@ -38,6 +38,13 @@ const AdminDashboard = () => {
       roles: ["Admin"],
     },
     {
+      id: "crawl-jobs",
+      label: "Crawl dữ liệu AI",
+      icon: "fa-database",
+      path: "/admin/crawl-jobs",
+      roles: ["Admin"],
+    },
+    {
       id: "giftcodes",
       label: "Quản lý Giftcode",
       icon: "fa-ticket-alt",

@@ -69,6 +69,23 @@ namespace QkTravelApi.Services.Plan
                 // 2. Build AI generation context
                 var destinationNames = location.Destinations.Select(d => d.Name).ToList();
                 var hobbyNames = hobbies.Select(h => h.Name).ToList();
+                var crawledItems = await _context.CrawledTravelItems
+                    .Where(i => i.IsApproved && EF.Functions.ILike(i.LocationName, $"%{location.Name}%"))
+                    .OrderByDescending(i => i.FetchedAt)
+                    .Take(40)
+                    .Select(i => new AIGroundedTravelItem
+                    {
+                        SourceName = i.SourceName,
+                        SourceUrl = i.SourceUrl,
+                        Type = i.Type.ToString(),
+                        Title = i.Title,
+                        Description = i.Description,
+                        Address = i.Address,
+                        ImageUrl = i.ImageUrl,
+                        Rating = i.Rating,
+                        PriceText = i.PriceText
+                    })
+                    .ToListAsync();
 
                 var context = new AIGenerationContext
                 {
@@ -79,7 +96,8 @@ namespace QkTravelApi.Services.Plan
                     PriceRange = priceSetting.Name,
                     Notes = request.Notes ?? string.Empty,
                     Hobbies = hobbyNames,
-                    DestinationNames = destinationNames
+                    DestinationNames = destinationNames,
+                    CrawledTravelItems = crawledItems
                 };
 
                 // 3. Call AI service with multi-step generation

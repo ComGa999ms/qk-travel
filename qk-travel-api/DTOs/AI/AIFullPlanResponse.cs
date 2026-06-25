@@ -26,5 +26,19 @@ namespace QkTravelApi.DTOs.AI
         public string Notes { get; set; } = string.Empty;
         public List<string> Hobbies { get; set; } = new();
         public List<string> DestinationNames { get; set; } = new();
+        public List<AIGroundedTravelItem> CrawledTravelItems { get; set; } = new();
+    }
+
+    public class AIGroundedTravelItem
+    {
+        public string SourceName { get; set; } = string.Empty;
+        public string SourceUrl { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Address { get; set; }
+        public string? ImageUrl { get; set; }
+        public decimal? Rating { get; set; }
+        public string? PriceText { get; set; }
     }
 }

@@ -53,6 +53,9 @@ namespace QkTravelApi.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<BlogComment> BlogComments { get; set; }
+        public DbSet<CrawlJob> CrawlJobs { get; set; }
+        public DbSet<CrawledTravelItem> CrawledTravelItems { get; set; }
+        public DbSet<CrawlJobLog> CrawlJobLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -438,6 +441,60 @@ namespace QkTravelApi.Data
                 entity.Property(e => e.IsActive).IsRequired();
                 entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.UpdatedAt);
+            });
+
+            builder.Entity<CrawlJob>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Source).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.LocationName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.ItemType).HasConversion<string>();
+                entity.Property(e => e.Status).HasConversion<string>();
+                entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+                entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasIndex(e => e.Status);
+
+                entity.HasOne(e => e.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            builder.Entity<CrawledTravelItem>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SourceName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.SourceUrl).IsRequired().HasMaxLength(1000);
+                entity.Property(e => e.Type).HasConversion<string>();
+                entity.Property(e => e.LocationName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.Address).HasMaxLength(500);
+                entity.Property(e => e.ImageUrl).HasMaxLength(1000);
+                entity.Property(e => e.PriceText).HasMaxLength(200);
+                entity.Property(e => e.Rating).HasColumnType("decimal(3,2)");
+                entity.Property(e => e.FetchedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasIndex(e => new { e.SourceName, e.SourceUrl }).IsUnique();
+                entity.HasIndex(e => new { e.LocationName, e.Type, e.IsApproved });
+
+                entity.HasOne(e => e.CrawlJob)
+                    .WithMany(j => j.Items)
+                    .HasForeignKey(e => e.CrawlJobId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<CrawlJobLog>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Level).HasConversion<string>();
+                entity.Property(e => e.Message).IsRequired().HasMaxLength(1000);
+                entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasIndex(e => e.CrawlJobId);
+
+                entity.HasOne(e => e.CrawlJob)
+                    .WithMany(j => j.Logs)
+                    .HasForeignKey(e => e.CrawlJobId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
         }

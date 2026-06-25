@@ -53,6 +53,7 @@ import AdminFeedback from "../pages/admin/AdminFeedback";
 import AdminUsers from "../pages/admin/AdminUsers";
 import AdminBlogs from "../pages/admin/AdminBlogs";
 import AdminSpinWheel from "../pages/admin/AdminSpinWheel";
+import AdminCrawlJobs from "../pages/admin/AdminCrawlJobs";
 
 // Error Pages
 import Error401 from "../pages/errors/Error401";
@@ -410,6 +411,14 @@ const AppRoutes = () => {
             element={
               <PageTransition>
                 <AdminSpinWheel />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="crawl-jobs"
+            element={
+              <PageTransition>
+                <AdminCrawlJobs />
               </PageTransition>
             }
           />
