@@ -10,10 +10,14 @@ namespace QkTravelApi.Services.Crawling
         {
             var options = new ChromeOptions();
             var chromeBinary = ResolveExistingPath(
+                Environment.GetEnvironmentVariable("CHROME_BIN"),
                 "/usr/bin/chromium",
                 "/usr/bin/chromium-browser",
                 "/usr/bin/google-chrome",
                 "/usr/bin/google-chrome-stable");
+
+            if (string.IsNullOrWhiteSpace(chromeBinary))
+                throw new InvalidOperationException("Chrome/Chromium binary was not found. Install chromium in the API container.");
 
             if (!string.IsNullOrWhiteSpace(chromeBinary))
                 options.BinaryLocation = chromeBinary;
@@ -27,10 +31,19 @@ namespace QkTravelApi.Services.Crawling
             options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             options.AddArgument($"--user-data-dir={Path.Combine(Path.GetTempPath(), $"qktravel-chrome-{Guid.NewGuid():N}")}");
 
-            var chromeDriverPath = ResolveExistingPath("/usr/bin/chromedriver");
-            var service = string.IsNullOrWhiteSpace(chromeDriverPath)
-                ? ChromeDriverService.CreateDefaultService()
-                : ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(chromeDriverPath), Path.GetFileName(chromeDriverPath));
+            var chromeDriverPath = ResolveExistingPath(
+                Environment.GetEnvironmentVariable("CHROMEDRIVER_PATH"),
+                "/usr/bin/chromedriver",
+                "/usr/lib/chromium/chromedriver",
+                "/usr/lib/chromium-browser/chromedriver",
+                Path.Combine(AppContext.BaseDirectory, "chromedriver"));
+
+            if (string.IsNullOrWhiteSpace(chromeDriverPath))
+                throw new InvalidOperationException("ChromeDriver was not found. Install chromium-driver in the API container.");
+
+            var service = ChromeDriverService.CreateDefaultService(
+                Path.GetDirectoryName(chromeDriverPath),
+                Path.GetFileName(chromeDriverPath));
             service.HideCommandPromptWindow = true;
 
             return new ChromeDriver(service, options, TimeSpan.FromSeconds(60));

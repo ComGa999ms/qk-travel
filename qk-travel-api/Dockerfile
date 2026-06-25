@@ -5,7 +5,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends chromium chromium-driver \
+    && chmod +x /usr/bin/chromedriver \
     && rm -rf /var/lib/apt/lists/*
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
