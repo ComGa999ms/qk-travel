@@ -9,6 +9,15 @@ namespace QkTravelApi.Services.Crawling
         protected IWebDriver CreateDriver()
         {
             var options = new ChromeOptions();
+            var chromeBinary = ResolveExistingPath(
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/usr/bin/google-chrome",
+                "/usr/bin/google-chrome-stable");
+
+            if (!string.IsNullOrWhiteSpace(chromeBinary))
+                options.BinaryLocation = chromeBinary;
+
             options.AddArgument("--headless=new");
             options.AddArgument("--disable-gpu");
             options.AddArgument("--no-sandbox");
@@ -16,11 +25,20 @@ namespace QkTravelApi.Services.Crawling
             options.AddArgument("--window-size=1440,1200");
             options.AddArgument("--lang=vi-VN");
             options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+            options.AddArgument($"--user-data-dir={Path.Combine(Path.GetTempPath(), $"qktravel-chrome-{Guid.NewGuid():N}")}");
 
-            var service = ChromeDriverService.CreateDefaultService();
+            var chromeDriverPath = ResolveExistingPath("/usr/bin/chromedriver");
+            var service = string.IsNullOrWhiteSpace(chromeDriverPath)
+                ? ChromeDriverService.CreateDefaultService()
+                : ChromeDriverService.CreateDefaultService(Path.GetDirectoryName(chromeDriverPath), Path.GetFileName(chromeDriverPath));
             service.HideCommandPromptWindow = true;
 
             return new ChromeDriver(service, options, TimeSpan.FromSeconds(60));
+        }
+
+        private static string? ResolveExistingPath(params string[] paths)
+        {
+            return paths.FirstOrDefault(System.IO.File.Exists);
         }
 
         protected static string? SafeText(IWebElement element)
