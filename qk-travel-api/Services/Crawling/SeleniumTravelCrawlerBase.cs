@@ -22,6 +22,7 @@ namespace QkTravelApi.Services.Crawling
             if (!string.IsNullOrWhiteSpace(chromeBinary))
                 options.BinaryLocation = chromeBinary;
 
+            options.PageLoadStrategy = PageLoadStrategy.Eager;
             options.AddArgument("--headless=new");
             options.AddArgument("--disable-gpu");
             options.AddArgument("--no-sandbox");
@@ -46,12 +47,17 @@ namespace QkTravelApi.Services.Crawling
                 Path.GetFileName(chromeDriverPath));
             service.HideCommandPromptWindow = true;
 
-            return new ChromeDriver(service, options, TimeSpan.FromSeconds(60));
+            var driver = new ChromeDriver(service, options, TimeSpan.FromSeconds(60));
+            driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
+            driver.Manage().Timeouts().AsynchronousJavaScript = TimeSpan.FromSeconds(15);
+            return driver;
         }
 
-        private static string? ResolveExistingPath(params string[] paths)
+        private static string? ResolveExistingPath(params string?[] paths)
         {
-            return paths.FirstOrDefault(System.IO.File.Exists);
+            return paths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .FirstOrDefault(System.IO.File.Exists);
         }
 
         protected static string? SafeText(IWebElement element)
