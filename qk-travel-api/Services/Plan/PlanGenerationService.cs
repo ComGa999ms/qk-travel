@@ -138,7 +138,9 @@ namespace QkTravelApi.Services.Plan
                         BookingUrl = acc.BookingUrl,
                         ContactInfo = acc.ContactInfo,
                         ImageUrl = acc.ImageUrl,
-                        MapUrl = acc.MapUrl
+                        MapUrl = string.IsNullOrWhiteSpace(acc.MapUrl)
+                            ? BuildMapUrl(acc.Name, acc.Address, location.Name)
+                            : acc.MapUrl
                     });
                 }
 
@@ -189,7 +191,9 @@ namespace QkTravelApi.Services.Plan
                             PriceTo = act.PriceTo,
                             Tips = act.Tips,
                             Order = act.Order,
-                            MapUrl = act.MapUrl,
+                            MapUrl = string.IsNullOrWhiteSpace(act.MapUrl)
+                                ? BuildMapUrl(act.Name, act.DestinationName, location.Name)
+                                : act.MapUrl,
                             ImageUrl = act.ImageUrl
                         });
                     }
@@ -208,7 +212,9 @@ namespace QkTravelApi.Services.Plan
                             Description = food.Description,
                             SpecialtyNote = food.SpecialtyNote,
                             ImageUrl = food.ImageUrl,
-                            MapUrl = food.MapUrl
+                            MapUrl = string.IsNullOrWhiteSpace(food.MapUrl)
+                                ? BuildMapUrl(food.RestaurantName, food.Address, location.Name)
+                                : food.MapUrl
                         });
                     }
 
@@ -292,6 +298,22 @@ namespace QkTravelApi.Services.Plan
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        // Build a Google Maps search URL from a place name + context (address/destination + city).
+        // Used as a fallback when the AI does not return a usable map link, so every item still
+        // has a working "view on map" link without needing an API key.
+        private static string? BuildMapUrl(string? name, string? context, string? cityName)
+        {
+            var parts = new[] { name, context, cityName }
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p!.Trim());
+
+            var query = string.Join(", ", parts);
+            if (string.IsNullOrWhiteSpace(query))
+                return null;
+
+            return $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(query)}";
         }
     }
 }
