@@ -17,15 +17,23 @@ namespace QkTravelApi.Services.Crawling
             CancellationToken cancellationToken = default)
         {
             var result = new TravelCrawlerResult();
-            var titleSlug = Uri.EscapeDataString(request.LocationName.Trim().Replace(" ", "_"));
-            var url = $"{BaseUrl}/wiki/{titleSlug}";
-
-            await logInfo($"Opening Wikivoyage page: {url}");
 
             using var driver = CreateDriver();
-            driver.Navigate().GoToUrl(url);
+
+            // Vietnamese province names rarely match a Wikivoyage article slug directly
+            // (e.g. "Thừa Thiên Huế" has no /wiki/ page; the real article is "Hue").
+            // Resolve the real article through Wikivoyage search first, then fall back to a
+            // direct slug guess only if search returns nothing.
+            var articleUrl = await ResolveArticleUrlAsync(driver, request.LocationName, logInfo, cancellationToken)
+                ?? $"{BaseUrl}/wiki/{Uri.EscapeDataString(request.LocationName.Trim().Replace(" ", "_"))}";
+
+            await logInfo($"Opening Wikivoyage article: {articleUrl}");
+            driver.Navigate().GoToUrl(articleUrl);
             WaitForBody(driver);
             await Task.Delay(1000, cancellationToken);
+
+            // Capture the canonical URL (search/redirects may change it) for per-listing anchoring.
+            var url = driver.Url;
 
             var pageTitle = driver.FindElements(By.CssSelector("#firstHeading, h1")).FirstOrDefault()?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(pageTitle))
@@ -34,9 +42,10 @@ namespace QkTravelApi.Services.Crawling
                 return result;
             }
 
-            // Wikivoyage renders POIs as `.vcard.listing` elements. Each carries a structured
-            // name (.fn), address (.adr/.street-address), phone (.tel), price (.price) and a description.
-            var listings = driver.FindElements(By.CssSelector("span.vcard.listing, .vcard.listing"));
+            // Wikivoyage renders POIs as `span.listing` elements (the `vcard` class is not always
+            // present). Each carries a structured name (.fn), address (.adr/.street-address),
+            // phone (.tel), price (.price) and a description.
+            var listings = driver.FindElements(By.CssSelector("span.listing, .vcard.listing"));
             await logInfo($"Found {listings.Count} structured listings on Wikivoyage page");
 
             foreach (var listing in listings)
@@ -77,6 +86,41 @@ namespace QkTravelApi.Services.Crawling
             return result;
         }
 
+        // Use Wikivoyage's search page to map a free-text location name to a real article URL.
+        private async Task<string?> ResolveArticleUrlAsync(
+            IWebDriver driver,
+            string locationName,
+            Func<string, Task> logInfo,
+            CancellationToken cancellationToken)
+        {
+            var searchUrl = $"{BaseUrl}/w/index.php?title=Special:Search&search={Uri.EscapeDataString(locationName.Trim())}&ns0=1";
+            await logInfo($"Searching Wikivoyage for: {locationName}");
+
+            driver.Navigate().GoToUrl(searchUrl);
+            WaitForBody(driver);
+            await Task.Delay(800, cancellationToken);
+
+            // Case 1: exact title match redirects straight to the article (no results list).
+            if (driver.Url.Contains("/wiki/", StringComparison.OrdinalIgnoreCase)
+                && !driver.Url.Contains("Special:Search", StringComparison.OrdinalIgnoreCase))
+            {
+                return driver.Url;
+            }
+
+            // Case 2: a results list is shown; take the first content article link.
+            var firstResult = driver.FindElements(By.CssSelector(".mw-search-result-heading a, .searchresults a"))
+                .Select(a => SafeAttribute(a, "href"))
+                .FirstOrDefault(href => !string.IsNullOrWhiteSpace(href) && href.Contains("/wiki/"));
+
+            if (string.IsNullOrWhiteSpace(firstResult))
+            {
+                await logInfo("Wikivoyage search returned no article results");
+                return null;
+            }
+
+            return MakeAbsoluteUrl(BaseUrl, firstResult);
+        }
+
         private CrawledTravelItemDraft? ParseListing(IWebElement listing, TravelCrawlerRequest request, string pageUrl)
         {
             var title = FirstChildText(listing, ".fn", ".listing-name", "b", "a");
@@ -102,7 +146,7 @@ namespace QkTravelApi.Services.Crawling
                 return null;
 
             var latitude = SafeAttribute(listing, "data-lat");
-            var longitude = SafeAttribute(listing, "data-lon");
+            var longitude = SafeAttribute(listing, "data-lng") ?? SafeAttribute(listing, "data-lon");
 
             var imageUrl = NormalizeWikiImage(
                 listing.FindElements(By.CssSelector("img"))
