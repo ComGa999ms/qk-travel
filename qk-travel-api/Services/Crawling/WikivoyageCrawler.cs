@@ -28,14 +28,15 @@ namespace QkTravelApi.Services.Crawling
                 ?? $"{BaseUrl}/wiki/{Uri.EscapeDataString(request.LocationName.Trim().Replace(" ", "_"))}";
 
             await logInfo($"Opening Wikivoyage article: {articleUrl}");
-            driver.Navigate().GoToUrl(articleUrl);
-            WaitForBody(driver);
-            await Task.Delay(1000, cancellationToken);
+            SafeNavigate(driver, articleUrl);
+            // Wait for the listing container too, not just the heading: with PageLoadStrategy.None
+            // the body parses incrementally, so give the POI markup time to arrive.
+            WaitForElement(driver, "#mw-content-text", 20);
 
             // Capture the canonical URL (search/redirects may change it) for per-listing anchoring.
             var url = driver.Url;
 
-            var pageTitle = driver.FindElements(By.CssSelector("#firstHeading, h1")).FirstOrDefault()?.Text?.Trim();
+            var pageTitle = ReadHeading(driver);
             if (string.IsNullOrWhiteSpace(pageTitle))
             {
                 await logWarning("Wikivoyage page did not load a valid title");
@@ -96,9 +97,9 @@ namespace QkTravelApi.Services.Crawling
             var searchUrl = $"{BaseUrl}/w/index.php?title=Special:Search&search={Uri.EscapeDataString(locationName.Trim())}&ns0=1";
             await logInfo($"Searching Wikivoyage for: {locationName}");
 
-            driver.Navigate().GoToUrl(searchUrl);
-            WaitForBody(driver);
-            await Task.Delay(800, cancellationToken);
+            SafeNavigate(driver, searchUrl);
+            // Either a search results list (.mw-search-results) or, on an exact match, the article itself.
+            WaitForElement(driver, "#firstHeading, .mw-search-results");
 
             // Case 1: exact title match redirects straight to the article (no results list).
             if (driver.Url.Contains("/wiki/", StringComparison.OrdinalIgnoreCase)
@@ -119,6 +120,32 @@ namespace QkTravelApi.Services.Crawling
             }
 
             return MakeAbsoluteUrl(BaseUrl, firstResult);
+        }
+
+        // With PageLoadStrategy.None the heading may be empty for a moment while the page swaps in.
+        // Poll #firstHeading a few times, then fall back to document.title (minus the site suffix).
+        private static string? ReadHeading(IWebDriver driver)
+        {
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                var heading = driver.FindElements(By.CssSelector("#firstHeading, h1"))
+                    .Select(e => e.Text?.Trim())
+                    .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+
+                if (!string.IsNullOrWhiteSpace(heading))
+                    return heading;
+
+                Thread.Sleep(500);
+            }
+
+            var docTitle = driver.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(docTitle))
+                return null;
+
+            // Wikivoyage titles look like "Hue – Travel guide at Wikivoyage".
+            var separatorIndex = docTitle.IndexOf('–');
+            if (separatorIndex < 0) separatorIndex = docTitle.IndexOf('-');
+            return separatorIndex > 0 ? docTitle[..separatorIndex].Trim() : docTitle;
         }
 
         private CrawledTravelItemDraft? ParseListing(IWebElement listing, TravelCrawlerRequest request, string pageUrl)

@@ -22,8 +22,12 @@ namespace QkTravelApi.Services.Crawling
             if (!string.IsNullOrWhiteSpace(chromeBinary))
                 options.BinaryLocation = chromeBinary;
 
-            options.PageLoadStrategy = PageLoadStrategy.Eager;
+            // None = GoToUrl returns immediately instead of blocking until the whole page
+            // (ads, trackers, videos) finishes loading. We then wait for the specific element
+            // we need. This is what stops heavy pages from timing out and killing the job.
+            options.PageLoadStrategy = PageLoadStrategy.None;
             options.AddArgument("--headless=new");
+            options.AddArgument("--blink-settings=imagesEnabled=false");
             options.AddArgument("--disable-gpu");
             options.AddArgument("--no-sandbox");
             options.AddArgument("--disable-dev-shm-usage");
@@ -86,6 +90,36 @@ namespace QkTravelApi.Services.Crawling
         {
             var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
             wait.Until(d => d.FindElement(By.TagName("body")));
+        }
+
+        // With PageLoadStrategy.None a heavy page may never fire "load"; the navigate call can
+        // still throw a timeout. Swallow it so we can parse whatever DOM already arrived.
+        protected static void SafeNavigate(IWebDriver driver, string url)
+        {
+            try
+            {
+                driver.Navigate().GoToUrl(url);
+            }
+            catch (OpenQA.Selenium.WebDriverTimeoutException)
+            {
+                // Page kept loading past the timeout; continue with the partial DOM.
+            }
+        }
+
+        // Wait until a specific selector is present (up to timeoutSeconds). Returns false on timeout
+        // instead of throwing, so the caller decides whether the page is usable.
+        protected static bool WaitForElement(IWebDriver driver, string cssSelector, int timeoutSeconds = 15)
+        {
+            try
+            {
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+                wait.Until(d => d.FindElements(By.CssSelector(cssSelector)).Count > 0);
+                return true;
+            }
+            catch (OpenQA.Selenium.WebDriverTimeoutException)
+            {
+                return false;
+            }
         }
     }
 }
