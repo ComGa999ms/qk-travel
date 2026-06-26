@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import PricingModal from "../components/booking/PricingModal";
 import bgHeroPlanResult from "../assets/images/hero-ai-planner-result-page.jpg";
 import { hasPremiumAccess } from "../utils/subscriptionUtils";
+import PlanChatWidget from "../components/ai-planner/PlanChatWidget";
 
 // Build the ordered list of place queries for a day, e.g. ["Cầu Rồng, Đà Nẵng", ...].
 const buildDayPoints = (activities, cityName) =>
@@ -533,6 +534,12 @@ const AIPlannerResultPage = () => {
       <PricingModal
         isOpen={showPricing}
         onClose={() => setShowPricing(false)}
+      />
+
+      <PlanChatWidget
+        planId={planData.id}
+        isPremium={isPremium}
+        onUpgradeClick={() => setShowPricing(true)}
       />
     </div>
   );

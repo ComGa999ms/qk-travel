@@ -9,5 +9,6 @@ namespace QkTravelApi.Services.Plan
         Task<List<PlanResponse>> GetUserPlansAsync(string userId, int page = 1, int pageSize = 10);
         Task<bool> SavePlanAsync(int planId, string userId);
         Task<bool> DeletePlanAsync(int planId, string userId);
+        Task<PlanChatResponse> ChatAboutPlanAsync(int planId, PlanChatRequest request, string userId);
     }
 }

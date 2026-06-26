@@ -300,6 +300,34 @@ namespace QkTravelApi.Services.Plan
             return true;
         }
 
+        public async Task<PlanChatResponse> ChatAboutPlanAsync(int planId, PlanChatRequest request, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(request.Question))
+                throw new BadRequestException("Question is required");
+
+            var planName = await _userPlanSubscriptionService.GetCurrentPlanNameAsync(userId);
+            if (string.IsNullOrWhiteSpace(planName) || !planName.Contains("premium", StringComparison.OrdinalIgnoreCase))
+                throw new BadRequestException("Chat về kế hoạch chỉ dành cho gói Premium");
+
+            var plan = await _context.Plans
+                .FirstOrDefaultAsync(p => p.Id == planId && p.UserId == userId)
+                ?? throw new NotFoundException("Plan not found");
+
+            var planContext = string.IsNullOrWhiteSpace(plan.AIResponseJson)
+                ? $"Chuyến đi {plan.Duration} ngày, {plan.NumberOfPeople} người."
+                : plan.AIResponseJson;
+
+            // Keep only the last few turns to bound the prompt size.
+            var history = (request.History ?? new List<PlanChatMessageDto>())
+                .Where(m => !string.IsNullOrWhiteSpace(m.Content))
+                .TakeLast(10)
+                .Select(m => (m.Role, m.Content))
+                .ToList();
+
+            var answer = await _aiService.ChatAboutPlanAsync(planContext, history, request.Question);
+            return new PlanChatResponse { Answer = answer };
+        }
+
         // Build a Google Maps search URL from a place name + context (address/destination + city).
         // Used as a fallback when the AI does not return a usable map link, so every item still
         // has a working "view on map" link without needing an API key.

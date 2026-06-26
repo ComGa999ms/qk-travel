@@ -449,6 +449,55 @@ Trả về JSON với format: {{summary, totalEstimatedCostFrom, totalEstimatedC
 
         #endregion
 
+        #region Plan Chat (Q&A about a generated plan)
+
+        public async Task<string> ChatAboutPlanAsync(
+            string planContext,
+            List<(string Role, string Content)> history,
+            string question)
+        {
+            var systemPrompt = $@"Bạn là trợ lý du lịch của Qk Travel. Người dùng vừa tạo một kế hoạch du lịch và đang hỏi thêm về nó.
+Trả lời bằng tiếng Việt, ngắn gọn, thân thiện và thực tế.
+
+QUY TẮC:
+- CHỈ dựa vào thông tin trong KẾ HOẠCH bên dưới để trả lời. Nếu kế hoạch không có thông tin, nói rõ là kế hoạch chưa đề cập và đưa gợi ý chung hợp lý.
+- Không bịa số điện thoại, giá chính xác hay địa chỉ không có trong kế hoạch.
+- Có thể tư vấn sắp xếp lịch trình, thời tiết chung, mẹo đi lại, món nên thử dựa trên kế hoạch.
+- Trả lời dạng văn xuôi hoặc gạch đầu dòng ngắn, không trả JSON.
+
+KẾ HOẠCH (dạng JSON):
+{planContext}";
+
+            var messages = new List<ChatMessage> { new SystemChatMessage(systemPrompt) };
+
+            foreach (var (role, content) in history)
+            {
+                if (string.IsNullOrWhiteSpace(content)) continue;
+                if (role.Equals("assistant", StringComparison.OrdinalIgnoreCase))
+                    messages.Add(new AssistantChatMessage(content));
+                else
+                    messages.Add(new UserChatMessage(content));
+            }
+
+            messages.Add(new UserChatMessage(question));
+
+            var options = new ChatCompletionOptions
+            {
+                MaxOutputTokenCount = _aiSettings.MaxTokens,
+                Temperature = (float)_aiSettings.Temperature
+            };
+
+            var completion = await _chatClient.CompleteChatAsync(messages, options);
+            var response = completion.Value.Content[0].Text;
+
+            if (string.IsNullOrWhiteSpace(response))
+                throw new Exception("Empty AI response");
+
+            return response.Trim();
+        }
+
+        #endregion
+
         private string CleanJsonString(string response)
         {
             var json = response.Trim();

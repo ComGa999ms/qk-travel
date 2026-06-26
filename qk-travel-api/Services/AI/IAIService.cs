@@ -38,5 +38,14 @@ namespace QkTravelApi.Services.AI
             int dayNumber,
             string dayTheme,
             List<string> highlights);
+
+        /// <summary>
+        /// Answer a free-form user question about an already generated plan.
+        /// planContext is the plan rendered as text; history is prior turns (oldest first).
+        /// </summary>
+        Task<string> ChatAboutPlanAsync(
+            string planContext,
+            List<(string Role, string Content)> history,
+            string question);
     }
 }

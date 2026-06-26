@@ -121,6 +121,25 @@ const planService = {
   },
 
   /**
+   * Hỏi AI về một kế hoạch đã tạo (chỉ Premium)
+   * @param {number} id - ID kế hoạch
+   * @param {string} question - Câu hỏi của người dùng
+   * @param {Array<{role: string, content: string}>} history - Lịch sử hội thoại (cũ -> mới)
+   * @returns {Promise<string>} Câu trả lời của AI
+   */
+  chatAboutPlan: async (id, question, history = []) => {
+    const response = await api.post(`/api/Plans/${id}/chat`, {
+      question,
+      history,
+    });
+
+    if (response.data.success) {
+      return response.data.data.answer;
+    }
+    throw new Error(response.data.message || "Không thể gửi câu hỏi");
+  },
+
+  /**
    * Kiểm tra giới hạn lượt sử dụng AI Planner
    * @returns {Promise<Object>} Thông tin quota { limit, currentUsage, hasRemainingQuota }
    */

@@ -87,6 +87,20 @@ namespace QkTravelApi.Controllers
         }
 
         /// <summary>
+        /// Ask a free-form question about a generated plan (Premium only)
+        /// </summary>
+        [HttpPost("{id}/chat")]
+        public async Task<IActionResult> ChatAboutPlan(int id, [FromBody] PlanChatRequest request)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return this.Unauthorized("User not authenticated");
+
+            var response = await _planService.ChatAboutPlanAsync(id, request, userId);
+            return this.Success(response);
+        }
+
+        /// <summary>
         /// Delete a plan
         /// </summary>
         [HttpDelete("{id}")]
