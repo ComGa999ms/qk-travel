@@ -9,6 +9,40 @@ import PricingModal from "../components/booking/PricingModal";
 import bgHeroPlanResult from "../assets/images/hero-ai-planner-result-page.jpg";
 import { hasPremiumAccess } from "../utils/subscriptionUtils";
 
+// Build the ordered list of place queries for a day, e.g. ["Cầu Rồng, Đà Nẵng", ...].
+const buildDayPoints = (activities, cityName) =>
+  (activities || [])
+    .map((a) => a?.name?.trim())
+    .filter(Boolean)
+    .map((name) => (cityName ? `${name}, ${cityName}` : name));
+
+// Embeddable Google Maps URL (no API key needed). With 2+ points it draws the
+// A -> B -> C route in order; with 1 point it just pins that place.
+const buildDayRouteMap = (activities, cityName) => {
+  const points = buildDayPoints(activities, cityName);
+  if (points.length === 0) return null;
+
+  if (points.length === 1)
+    return `https://www.google.com/maps?q=${encodeURIComponent(points[0])}&output=embed`;
+
+  const saddr = encodeURIComponent(points[0]);
+  const daddr = points.slice(1).map(encodeURIComponent).join("+to:");
+  return `https://www.google.com/maps?saddr=${saddr}&daddr=${daddr}&output=embed`;
+};
+
+// Full-screen directions link (opens Google Maps in a new tab) for the same route.
+const buildDayRouteLink = (activities, cityName) => {
+  const points = buildDayPoints(activities, cityName);
+  if (points.length === 0) return null;
+
+  const origin = encodeURIComponent(points[0]);
+  const destination = encodeURIComponent(points[points.length - 1]);
+  const waypoints = points.slice(1, -1).map(encodeURIComponent).join("|");
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+  if (waypoints) url += `&waypoints=${waypoints}`;
+  return url;
+};
 
 const AIPlannerResultPage = () => {
   const location = useLocation();
@@ -191,6 +225,52 @@ const AIPlannerResultPage = () => {
 
                     {!isLocked && (
                       <div className="p-6 space-y-8">
+                        {/* Day Route Map */}
+                        {(() => {
+                          const cityName = planData.location?.name;
+                          const mapSrc = buildDayRouteMap(
+                            day.activities,
+                            cityName,
+                          );
+                          const routeLink = buildDayRouteLink(
+                            day.activities,
+                            cityName,
+                          );
+                          if (!mapSrc) return null;
+
+                          return (
+                            <div>
+                              <div className="flex items-center justify-between mb-4">
+                                <h5 className="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase">
+                                  <i className="fas fa-route text-blue-500"></i>{" "}
+                                  Lộ trình ngày {day.dayNumber}
+                                </h5>
+                                {routeLink && (
+                                  <a
+                                    href={routeLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                  >
+                                    <i className="fas fa-external-link-alt"></i>
+                                    Mở Google Maps
+                                  </a>
+                                )}
+                              </div>
+                              <div className="w-full h-64 sm:h-80 rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+                                <iframe
+                                  title={`Lộ trình ngày ${day.dayNumber}`}
+                                  src={mapSrc}
+                                  className="w-full h-full"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer-when-downgrade"
+                                  allowFullScreen
+                                ></iframe>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {/* Activities */}
                         <div>
                           <h5 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm uppercase">
@@ -233,6 +313,17 @@ const AIPlannerResultPage = () => {
                                         <i className="fas fa-lightbulb mt-0.5"></i>
                                         {act.tips}
                                       </div>
+                                    )}
+                                    {act.mapUrl && (
+                                      <a
+                                        href={act.mapUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                      >
+                                        <i className="fas fa-map-marker-alt"></i>{" "}
+                                        Xem bản đồ
+                                      </a>
                                     )}
                                   </div>
                                 </div>
@@ -279,10 +370,30 @@ const AIPlannerResultPage = () => {
                                     <p className="text-xs text-gray-500 truncate mb-1">
                                       {food.restaurantName}
                                     </p>
-                                    <p className="text-xs font-bold text-gray-700">
-                                      {formatCurrency(food.priceFrom)} -{" "}
-                                      {formatCurrency(food.priceTo)}
-                                    </p>
+                                    <div className="flex justify-between items-end">
+                                      <p className="text-xs font-bold text-gray-700">
+                                        {food.priceFrom || food.priceTo ? (
+                                          <>
+                                            {formatCurrency(food.priceFrom)} -{" "}
+                                            {formatCurrency(food.priceTo)}
+                                          </>
+                                        ) : (
+                                          <span className="text-gray-400 font-medium">
+                                            Giá tham khảo
+                                          </span>
+                                        )}
+                                      </p>
+                                      {food.mapUrl && (
+                                        <a
+                                          href={food.mapUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-blue-500 hover:text-blue-700"
+                                        >
+                                          <i className="fas fa-location-arrow"></i>
+                                        </a>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               ))}
@@ -371,10 +482,18 @@ const AIPlannerResultPage = () => {
                           <i className="fas fa-star"></i> {acc.rating}
                         </div>
                         <div className="text-purple-600 font-bold">
-                          {formatCurrency(acc.pricePerNight)}
-                          <span className="text-gray-400 text-xs font-normal">
-                            /đêm
-                          </span>
+                          {acc.pricePerNight ? (
+                            <>
+                              {formatCurrency(acc.pricePerNight)}
+                              <span className="text-gray-400 text-xs font-normal">
+                                /đêm
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 text-sm font-medium">
+                              Giá tham khảo
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
