@@ -123,18 +123,14 @@ const planService = {
   /**
    * Hỏi AI về một kế hoạch đã tạo (chỉ Premium)
    * @param {number} id - ID kế hoạch
-   * @param {string} question - Câu hỏi của người dùng
-   * @param {Array<{role: string, content: string}>} history - Lịch sử hội thoại (cũ -> mới)
-   * @returns {Promise<string>} Câu trả lời của AI
+   * @param {{question: string, history: Array<{role: string, content: string}>}} payload
+   * @returns {Promise<{answer: string}>} Câu trả lời của AI
    */
-  chatAboutPlan: async (id, question, history = []) => {
-    const response = await api.post(`/api/Plans/${id}/chat`, {
-      question,
-      history,
-    });
+  chatAboutPlan: async (id, payload) => {
+    const response = await api.post(`/api/Plans/${id}/chat`, payload);
 
     if (response.data.success) {
-      return response.data.data.answer;
+      return response.data.data;
     }
     throw new Error(response.data.message || "Không thể gửi câu hỏi");
   },
