@@ -4,6 +4,7 @@ namespace QkTravelApi.Entities
     {
         public int Id { get; set; }
         public string Source { get; set; } = string.Empty;
+        public int? LocationId { get; set; }
         public string LocationName { get; set; } = string.Empty;
         public CrawledTravelItemType ItemType { get; set; }
         public CrawlJobStatus Status { get; set; } = CrawlJobStatus.Pending;
@@ -18,6 +19,7 @@ namespace QkTravelApi.Entities
         public DateTime? FinishedAt { get; set; }
 
         public ApplicationUser? CreatedByUser { get; set; }
+        public Location? Location { get; set; }
         public List<CrawledTravelItem> Items { get; set; } = new();
         public List<CrawlJobLog> Logs { get; set; } = new();
     }

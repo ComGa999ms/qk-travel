@@ -6,6 +6,7 @@ namespace QkTravelApi.DTOs.Crawling
     {
         public int Id { get; set; }
         public string Source { get; set; } = string.Empty;
+        public int? LocationId { get; set; }
         public string LocationName { get; set; } = string.Empty;
         public CrawledTravelItemType ItemType { get; set; }
         public CrawlJobStatus Status { get; set; }

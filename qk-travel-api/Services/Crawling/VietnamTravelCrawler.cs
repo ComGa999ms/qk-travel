@@ -136,13 +136,16 @@ namespace QkTravelApi.Services.Crawling
             if (IsGenericNavigationPath(path) || IsGenericNavigationTitle(normalizedText))
                 return false;
 
-            return HasTypeSignal(itemType, $"{path} {normalizedText}", strict: false);
+            // Cua 1 chi loc link dieu huong generic. Khong ep keyword o day vi
+            // link ket qua that (vd /vi/diem-den/ha-noi) thuong khong chua tu khoa loai.
+            // De cua 2 (IsDetailRelevant, da vao trang chi tiet) lam bo loc chinh.
+            return true;
         }
 
         private static bool IsDetailRelevant(CrawledTravelItemType itemType, string title, string? description, string url)
         {
             var haystack = $"{title} {description} {url}".ToLowerInvariant();
-            return HasTypeSignal(itemType, haystack, strict: true);
+            return HasTypeSignal(itemType, haystack, strict: false);
         }
 
         private static bool IsGenericNavigationPath(string path)

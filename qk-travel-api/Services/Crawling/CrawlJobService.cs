@@ -32,8 +32,8 @@ namespace QkTravelApi.Services.Crawling
 
         public async Task<CrawlJobResponse> CreateJobAsync(CreateCrawlJobRequest request, string userId)
         {
-            if (string.IsNullOrWhiteSpace(request.LocationName))
-                throw new BadRequestException("Location name is required");
+            if (request.LocationId < 1)
+                throw new BadRequestException("Location is required");
 
             if (request.MaxItems < 1) request.MaxItems = 10;
             if (request.MaxItems > 50) request.MaxItems = 50;
@@ -42,10 +42,14 @@ namespace QkTravelApi.Services.Crawling
             if (crawler == null)
                 throw new BadRequestException($"Crawler source '{request.Source}' is not supported");
 
+            var location = await _context.Locations.FirstOrDefaultAsync(l => l.Id == request.LocationId)
+                ?? throw new BadRequestException("Location not found");
+
             var job = new CrawlJob
             {
                 Source = crawler.Source,
-                LocationName = request.LocationName.Trim(),
+                LocationId = location.Id,
+                LocationName = location.Name,
                 ItemType = request.ItemType,
                 MaxItems = request.MaxItems,
                 Status = CrawlJobStatus.Pending,
@@ -184,6 +188,7 @@ namespace QkTravelApi.Services.Crawling
                 var request = new TravelCrawlerRequest
                 {
                     Source = job.Source,
+                    LocationId = job.LocationId,
                     LocationName = job.LocationName,
                     ItemType = job.ItemType,
                     MaxItems = job.MaxItems
@@ -211,6 +216,7 @@ namespace QkTravelApi.Services.Crawling
                     db.CrawledTravelItems.Add(new CrawledTravelItem
                     {
                         CrawlJobId = job.Id,
+                        LocationId = job.LocationId,
                         SourceName = draft.SourceName,
                         SourceUrl = draft.SourceUrl,
                         Type = draft.Type,
@@ -222,12 +228,12 @@ namespace QkTravelApi.Services.Crawling
                         Rating = draft.Rating,
                         PriceText = draft.PriceText,
                         RawJson = draft.RawJson,
-                        IsApproved = true,
+                        IsApproved = false,
                         FetchedAt = DateTime.UtcNow
                     });
 
                     job.SuccessItems++;
-                    await AddLog(db, job.Id, CrawlLogLevel.Info, $"Saved item: {draft.Title}");
+                    await AddLog(db, job.Id, CrawlLogLevel.Info, $"Saved item (chờ duyệt): {draft.Title}");
                 }
 
                 job.Status = job.SuccessItems > 0 && job.FailedItems > 0

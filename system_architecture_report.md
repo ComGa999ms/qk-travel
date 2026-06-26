@@ -260,3 +260,30 @@ Dựa trên cấu trúc source code, hệ thống đã hoàn thiện các tính 
 **5. Hạ tầng (Infrastructure)**
 - Cấu hình sẵn sàng AWS S3 Upload file, PostgreSQL database, Docker container (`Dockerfile`).
 - Cấu hình Deployment cho Vercel (Frontend) và Render/GCP (Backend).
+
+---
+
+## 6. Phân Tích Chi Tiết Module AI PlanTrip (Core Value)
+
+AI PlanTrip là tính năng quan trọng nhất (USP) của hệ thống QK Travel, giúp tự động hóa hoàn toàn quá trình lên lịch trình phức tạp bằng cách cá nhân hóa theo yêu cầu cụ thể của từng Traveler.
+
+### 6.1. Mục đích & Vai trò
+*   **Tự động hóa:** Thay vì mất hàng giờ tìm kiếm và sắp xếp, hệ thống tạo ra một lịch trình chi tiết từ A-Z (nơi ở, di chuyển, ăn uống, hoạt động) chỉ trong vài chục giây.
+*   **Cá nhân hóa cao độ:** Lịch trình được tính toán dựa trên các thông số chi tiết của người dùng: Điểm đến (Destination), Thời gian (Dates), Ngân sách (Budget), Nhóm đồng hành (Companions) và Sở thích cá nhân (Hobbies/Travel Style).
+*   **Linh hoạt (Customizable):** Lịch trình do AI tạo ra ban đầu là một bản nháp hoàn chỉnh. Người dùng có thể lưu vào mục "My Plans" và tự do tinh chỉnh (thêm/bớt hoạt động, thay đổi nhà hàng, khách sạn) cho phù hợp với thực tế trước khi chốt chuyến đi.
+
+### 6.2. Thuật Toán Sinh Dữ Liệu Đa Bước (Multi-step Generation)
+Thay vì sử dụng một "Single-call Prompt" đơn giản (bắt AI tạo toàn bộ lịch trình 5-7 ngày trong 1 lần gọi, dễ gây lỗi cấu trúc và vượt giới hạn token), hệ thống sử dụng thuật toán chia để trị (Divide and Conquer) với luồng xử lý cực kỳ tối ưu:
+
+1.  **Thu thập & Validate (Frontend -> Backend):** Nhận tham số (Điểm đến, Số ngày, Ngân sách, Sở thích) qua Form Wizard. Controller kiểm tra Quota sử dụng của User.
+2.  **Bước 1 - Lên sườn bài (Generate Outline):** Backend gọi OpenAI API lần 1 với Prompt tổng quan. AI trả về Outline gồm: Chi phí dự kiến, Danh sách Khách sạn, Phương tiện di chuyển, và quan trọng nhất là **Chủ đề (Theme & Highlights) cho từng ngày**.
+3.  **Bước 2 - Chi tiết hóa song song (Parallel Daily Details):** Dựa vào số ngày trong Outline, C# tạo ra một vòng lặp gọi AI đồng thời (`Task.WhenAll`). Mỗi request chứa một Prompt độc lập yêu cầu AI tạo chi tiết lịch trình (Hoạt động, Thời gian, Quán ăn, Tips) cho **chính xác 1 ngày cụ thể**.
+4.  **Phân tích & Lắp ráp (Parsing & Aggregation):** Các kết quả JSON đơn lẻ được C# Deserialize và ghép nối lại thành một đối tượng `AIFullPlanResponse` cấu trúc cây hoàn chỉnh, sau đó lưu toàn bộ Entities xuống PostgreSQL (EF Core).
+5.  **Hiển thị trực quan:** Frontend nhận tập dữ liệu hoàn chỉnh, map lên UI Timeline theo từng ngày, tích hợp bản đồ.
+
+### 6.3. Kỹ Thuật Tối Ưu Hóa Lõi (Core Optimizations)
+*   **Parallel Processing & Rate Limiting:** Ở bước gen lịch trình từng ngày, hệ thống gọi song song nhưng áp dụng `SemaphoreSlim(2)` để khóa giới hạn chỉ cho gọi tối đa 2 request cùng lúc tới OpenAI. Điều này tối ưu tốc độ cho người dùng nhưng vẫn tránh bị OpenAI báo lỗi Rate Limit (429 Too Many Requests).
+*   **Resilience (Cơ Chế Tự Phục Hồi):** Quá trình gọi API được bọc trong logic Retry tự động. Nếu một ngày cụ thể bị lỗi (do mạng, timeout, hoặc AI trả về sai), hàm `GenerateDailyDetailWithRetryAsync` sẽ tự động delay và thử lại tối đa 3 lần mà không làm gián đoạn/hỏng toàn bộ plan.
+*   **Strict JSON Mode:** Các Prompt đều định nghĩa cứng một JSON Schema. Kết hợp với `ChatResponseFormat.CreateJsonObjectFormat()` trong OpenAI C# SDK, hệ thống ép AI phải trả về định dạng chuẩn 100%, bảo đảm không có markdown hay text dư thừa, giúp quá trình Deserialize DTO không bao giờ ném Exception.
+*   **Quota & Funnel Management:** Giới hạn lượt sử dụng để kiểm soát chi phí API. Trải nghiệm AI Planner mượt mà chính là "Phễu chuyển đổi" (Conversion funnel) mạnh nhất thúc đẩy Traveler thanh toán nâng cấp Premium qua SePay QR.
+*   **Prompt Security:** Toàn bộ quá trình Prompt Engineering phức tạp nằm trên C# Service, giấu kín với Frontend, triệt tiêu rủi ro Prompt Injection từ người dùng.

@@ -9,15 +9,15 @@ namespace QkTravelApi.Services.Crawling
         protected IWebDriver CreateDriver()
         {
             var options = new ChromeOptions();
+
+            // On Linux containers Chrome/Chromium is installed at a known path.
+            // On Windows local dev, leave BinaryLocation unset so Selenium Manager finds the installed Chrome.
             var chromeBinary = ResolveExistingPath(
                 Environment.GetEnvironmentVariable("CHROME_BIN"),
                 "/usr/bin/chromium",
                 "/usr/bin/chromium-browser",
                 "/usr/bin/google-chrome",
                 "/usr/bin/google-chrome-stable");
-
-            if (string.IsNullOrWhiteSpace(chromeBinary))
-                throw new InvalidOperationException("Chrome/Chromium binary was not found. Install chromium in the API container.");
 
             if (!string.IsNullOrWhiteSpace(chromeBinary))
                 options.BinaryLocation = chromeBinary;
@@ -32,19 +32,21 @@ namespace QkTravelApi.Services.Crawling
             options.AddArgument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
             options.AddArgument($"--user-data-dir={Path.Combine(Path.GetTempPath(), $"qktravel-chrome-{Guid.NewGuid():N}")}");
 
+            // Resolve an explicit driver path (Linux container, or the chromedriver.exe copied into the output dir).
+            // If none is found, fall back to the default service so Selenium Manager auto-provisions the driver.
             var chromeDriverPath = ResolveExistingPath(
                 Environment.GetEnvironmentVariable("CHROMEDRIVER_PATH"),
                 "/usr/bin/chromedriver",
                 "/usr/lib/chromium/chromedriver",
                 "/usr/lib/chromium-browser/chromedriver",
-                Path.Combine(AppContext.BaseDirectory, "chromedriver"));
+                Path.Combine(AppContext.BaseDirectory, "chromedriver"),
+                Path.Combine(AppContext.BaseDirectory, "chromedriver.exe"));
 
-            if (string.IsNullOrWhiteSpace(chromeDriverPath))
-                throw new InvalidOperationException("ChromeDriver was not found. Install chromium-driver in the API container.");
-
-            var service = ChromeDriverService.CreateDefaultService(
-                Path.GetDirectoryName(chromeDriverPath),
-                Path.GetFileName(chromeDriverPath));
+            var service = string.IsNullOrWhiteSpace(chromeDriverPath)
+                ? ChromeDriverService.CreateDefaultService()
+                : ChromeDriverService.CreateDefaultService(
+                    Path.GetDirectoryName(chromeDriverPath),
+                    Path.GetFileName(chromeDriverPath));
             service.HideCommandPromptWindow = true;
 
             var driver = new ChromeDriver(service, options, TimeSpan.FromSeconds(60));

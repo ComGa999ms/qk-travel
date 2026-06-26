@@ -70,7 +70,7 @@ namespace QkTravelApi.Services.Plan
                 var destinationNames = location.Destinations.Select(d => d.Name).ToList();
                 var hobbyNames = hobbies.Select(h => h.Name).ToList();
                 var crawledItems = await _context.CrawledTravelItems
-                    .Where(i => i.IsApproved && EF.Functions.ILike(i.LocationName, $"%{location.Name}%"))
+                    .Where(i => i.IsApproved && i.LocationId == request.LocationId)
                     .OrderByDescending(i => i.FetchedAt)
                     .Take(40)
                     .Select(i => new AIGroundedTravelItem

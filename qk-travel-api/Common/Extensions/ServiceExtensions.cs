@@ -65,6 +65,7 @@ namespace QkTravelApi.Common.Extensions
             services.AddScoped<ICrawlJobService, CrawlJobService>();
             services.AddScoped<ITravelCrawler, VietnamTravelCrawler>();
             services.AddScoped<ITravelCrawler, WikivoyageCrawler>();
+            services.AddScoped<ITravelCrawler, VnExpressTravelCrawler>();
 
             // Register Hosted Services
             services.AddHostedService<QkTravelApi.Worker.PaymentCleanupWorker>();

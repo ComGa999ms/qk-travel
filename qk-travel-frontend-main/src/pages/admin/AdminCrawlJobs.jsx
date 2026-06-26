@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import crawlJobService from "../../services/crawlJobService";
+import locationService from "../../services/locationService";
 
 const statusStyles = {
   Pending: "bg-gray-100 text-gray-700",
@@ -18,6 +19,7 @@ const logStyles = {
 const sourceOptions = [
   { value: "VietnamTravel", label: "Vietnam Travel" },
   { value: "Wikivoyage", label: "Wikivoyage" },
+  { value: "VnExpress", label: "VnExpress Du lịch" },
 ];
 
 const typeOptions = [
@@ -31,10 +33,11 @@ const typeOptions = [
 const AdminCrawlJobs = () => {
   const [formData, setFormData] = useState({
     source: "VietnamTravel",
-    locationName: "Da Nang",
+    locationId: "",
     itemType: "Destination",
     maxItems: 10,
   });
+  const [locations, setLocations] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [items, setItems] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -88,6 +91,10 @@ const AdminCrawlJobs = () => {
 
   useEffect(() => {
     refreshAll();
+    locationService
+      .getAllLocations()
+      .then((data) => setLocations(data || []))
+      .catch(() => setLocations([]));
   }, []);
 
   useEffect(() => {
@@ -101,11 +108,18 @@ const AdminCrawlJobs = () => {
   const handleCreateJob = async (event) => {
     event.preventDefault();
     setError("");
+
+    if (!formData.locationId) {
+      setError("Vui lòng chọn tỉnh/thành phố");
+      return;
+    }
+
     setCreating(true);
 
     try {
       const job = await crawlJobService.createJob({
         ...formData,
+        locationId: Number(formData.locationId),
         maxItems: Number(formData.maxItems),
       });
       setSelectedJob(job);
@@ -188,19 +202,25 @@ const AdminCrawlJobs = () => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Tỉnh/thành hoặc từ khóa
+                Tỉnh/thành
               </label>
-              <input
-                value={formData.locationName}
+              <select
+                value={formData.locationId}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    locationName: e.target.value,
+                    locationId: e.target.value,
                   }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Da Nang, Ha Noi, Can Tho..."
-              />
+              >
+                <option value="">-- Chọn tỉnh/thành --</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -373,12 +393,24 @@ const AdminCrawlJobs = () => {
                       className={`px-2 py-1 rounded-full text-xs font-semibold ${
                         item.isApproved
                           ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {item.isApproved ? "Approved" : "Rejected"}
+                      {item.isApproved ? "Đã duyệt" : "Chờ duyệt"}
                     </span>
                   </div>
+                  {item.address && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      <i className="fas fa-map-marker-alt mr-1"></i>
+                      {item.address}
+                    </p>
+                  )}
+                  {item.priceText && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      <i className="fas fa-tag mr-1"></i>
+                      {item.priceText}
+                    </p>
+                  )}
                   <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                     {item.description || "Chưa có mô tả"}
                   </p>

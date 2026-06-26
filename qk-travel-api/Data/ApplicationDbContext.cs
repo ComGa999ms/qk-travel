@@ -459,6 +459,11 @@ namespace QkTravelApi.Data
                     .WithMany()
                     .HasForeignKey(e => e.CreatedByUserId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.Location)
+                    .WithMany()
+                    .HasForeignKey(e => e.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             builder.Entity<CrawledTravelItem>(entity =>
@@ -476,11 +481,17 @@ namespace QkTravelApi.Data
                 entity.Property(e => e.FetchedAt).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.HasIndex(e => new { e.SourceName, e.SourceUrl }).IsUnique();
                 entity.HasIndex(e => new { e.LocationName, e.Type, e.IsApproved });
+                entity.HasIndex(e => new { e.LocationId, e.Type, e.IsApproved });
 
                 entity.HasOne(e => e.CrawlJob)
                     .WithMany(j => j.Items)
                     .HasForeignKey(e => e.CrawlJobId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Location)
+                    .WithMany()
+                    .HasForeignKey(e => e.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             builder.Entity<CrawlJobLog>(entity =>
